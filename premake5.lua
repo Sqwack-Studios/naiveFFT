@@ -13,7 +13,7 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 project "naiveFFT"
 
-	kind "WindowedApp"
+	kind "ConsoleApp"
 	language "C++"
 	cppdialect "C++17"
 
