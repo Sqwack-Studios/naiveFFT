@@ -1,11 +1,14 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 #include <complex>
-void CooleyTukey_outofplace(uint16_t N, uint16_t stride, std::complex<double>* input, std::complex<double>* output);
-void CooleyTukey_inplace(uint16_t N, uint16_t stride, std::complex<double>* data);
 
+//TODO: Stockham
+
+void CooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<double>* input, std::complex<double>* output);
+void CooleyTukey_inplace(std::uint16_t N, std::uint16_t stride, std::complex<double>* data);
+
+void GentlemanSande_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data);
 void GentlemanSande_outofplace(uint16_t N);
-void GentlemanSande_inplace(uint16_t N);
 
 
 typedef struct Comp {
