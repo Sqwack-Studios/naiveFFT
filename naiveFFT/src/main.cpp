@@ -74,5 +74,7 @@ int main()
     test_fft(sig.data(), f.data(), sig0.data(), n);
 
     CooleyTukey_outofplace(n, 1, x.data(), y.data());
+    bit_reverse(n, x.data());
+    CooleyTukey_inplace(n, 0, x.data());
     return 0;
 }

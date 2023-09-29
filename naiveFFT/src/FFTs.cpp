@@ -4,7 +4,8 @@
 #include <iostream>
 #include <math.h>
 
-constexpr double _PI = 3.141592653589793;
+constexpr double _PI  = 3.1415926535897931;
+constexpr double _2PI = 6.2831853071795864;
 //Naive FFT implementations
 
 //During FFT demonstration, indices layout an in-place algorithm, suffering from time/decimation frequency that reverse the natural order(bit reversal permutations)
@@ -34,7 +35,7 @@ void CooleyTukey_outofplace(uint16_t N, uint16_t stride, std::complex<double>* i
 		return;
 	}
 
-	const double theta = -2.0 * _PI / N;
+	const double theta = -_2PI / static_cast<double>(N);
 	std::complex<double> omega = { cos(theta), sin(theta) };
 
 	const uint16_t half_N{ N / 2u };
@@ -55,7 +56,26 @@ void CooleyTukey_outofplace(uint16_t N, uint16_t stride, std::complex<double>* i
 
 void CooleyTukey_inplace(uint16_t N, uint16_t stride, std::complex<double>* data)
 {
+    if (N <= 1)
+        return;
 
+    const uint16_t half_N{ N / 2u };
+    const double theta{ -_2PI / static_cast<double>(N) };
+
+    CooleyTukey_inplace(half_N, stride, data);//even
+    CooleyTukey_inplace(half_N, stride + half_N, data);//odd
+
+    std::complex<double> omega = { cos(theta), sin(theta) };
+
+    for (uint16_t i = 0; i < half_N; ++i)
+    {
+        const std::complex<double> wi = pow(omega, static_cast<float>(i));
+        const std::complex<double> Y_i{ data[i + stride]};
+        const std::complex<double> Z_i{ wi * data[i + stride + half_N]};
+
+        data[stride + i] = Y_i + Z_i;
+        data[stride + i + half_N] = Y_i - Z_i;
+    }
 }
 
 void GentlemanSande_outofplace(uint16_t N)
