@@ -46,10 +46,12 @@ void CooleyTukey_outofplace(uint16_t N, uint16_t stride, std::complex<double>* i
 
 	for (uint16_t i = 0; i < half_N; ++i)
 	{
-		std::complex<double> aux = output[i];
-		std::complex<double> wi = pow(omega, static_cast<float>(i));
-		output[i] = aux + wi * output[i + half_N];
-		output[i + half_N] = aux - wi * output[i + half_N];
+		const std::complex<double> aux = output[i];
+		const std::complex<double> wi = pow(omega, static_cast<float>(i));
+        const std::complex<double> b = output[i + half_N] * wi;
+
+		output[i] = aux + b;
+		output[i + half_N] = aux - b;
 	}
 		
 }
