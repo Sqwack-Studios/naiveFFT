@@ -156,6 +156,78 @@ void stockhamButterflyPass(std::uint32_t half_N, std::uint32_t stride, std::uint
     }
 }
 
+void stockhamIterativeButterflyPass(std::uint32_t half_N, std::uint32_t stride, std::complex<double> w, std::complex<double>* in, std::complex<double>* out)
+{
+    for (std::uint32_t q = 0; q < stride; ++q)
+    {
+        for (std::uint32_t p = 0; p < half_N; ++p)
+        {
+            const std::complex<double> w_p{ pow(w, static_cast<float>(p)) };
+            const std::complex<double> a{ in[q + stride *  p          ] };
+            const std::complex<double> b{ in[q + stride * (p + half_N)] };
+
+            out[q + stride * (2u * p     )] = a + b;
+            out[q + stride * (2u * p + 1u)] = (a - b) * w_p;
+        }
+    }
+}
+
+//So, the thing is that using Gentleman-Sade formulation, we have that for an input sequence x[p], an output sequence X_k is generated so that:
+//X_k = X_2k + X_2k+1, where:
+//X_2k = F_N/2 (x[p] + x[p + n/2])     are the half-sequence lenght fourier transforms
+//X_2k+1 = F_N/2 ((x[p] - x[p + n/2]))Wp_N
+//This means that we have a relationship between the input/output sequences that we can exploit if we want to build an out-of-place algorithm.
+//Moreover, we can use that to create an algorithm that is self-sorting
+// 
+//For a N length sequence where N = 2^L, a 2-radix implementation will have up to L steps.
+//Each step we have an input array x_h, and we output into array X that will get self-sorted based in previous relationship.
+//The output array for each step will be input for the next step, so:
+//x_h+1(q, p) = x_h(q,p) + x_h(q, p + n/2)
+//x_h+1(q, p) = ( x_h(q,p) - x_h(q, p + n/2) )Wp_N
+//
+//Where, foreach H step, q = 0, 1,..., stride - 1
+//                     p = 0, 1,..., n/2 - 1
+//Where p is the butterfly pass index, and q represents an offset for even/odd splits of the sequence.
+//
+//Let's see what happens for an 8-point FFT: we have two memory arrays of size N; v0 and v1 
+//     ______________________________________________________________
+//    |      ||      ||      ||      ||      ||      ||      ||      |
+//v0  | v0[0]|| v0[1]|| v0[2]|| v0[3]|| v0[4]|| v0[5]|| v0[6]|| v0[7]| -> inout array
+//    |______||______||______||______||______||______||______||______|
+//     ______________________________________________________________
+//    |      ||      ||      ||      ||      ||      ||      ||      |
+//v1  | v1[0]|| v1[1]|| v1[2]|| v1[3]|| v1[4]|| v1[5]|| v1[6]|| v1[7]| -> support array
+//    |______||______||______||______||______||______||______||______|
+//
+//   [h = 0, stage-0; stride = 1; N = 8; half_N = 4 ]
+//fft0(8, 1, 0, v0, v1)
+//we access whole array: v0[p]
+//we write whole array: v1[p]
+//
+//   [h = 1, stage-1; stride = 2; N = 4; half_N = 2 ]
+//fft1(4, 2, 0, v1, v0)                     fft1(4, 2, 1, v1, v0)
+//
+// for each substage, p = 0, 1; q depends of even/odd split
+// for the even part, we compute butterfly components accessing v1 addresses:
+// v1[0], v1[4]; v1[2], v2[6]  -> write into v0[0], v0[2]; v0[4], v0[6]; we only read/write into even addresses
+// 
+// odd part, q = 1:
+// v1[1], v1[5]; v1[3], v2[7]  -> write into v0[1], v0[3]; v0[5], v0[7]; we only read/write into odd addresses
+//
+//   [h = 2, stage-2; stride = 4; N = 2; half_N = 1 ]
+//fft0(2, 4, 0, v0, v1)    fft0(2, 4, 2, v0, v1)    fft0(4, 2, 1, v0, v1)    fft0(4, 2, 3, v0, v1)    
+//
+//There is, however, a problem as we will see now. The deeper we get into each stage, read/writes distance is large.
+// 
+// stage-2, even-even path  fft0(2, 4, 0, v0, v1) 
+// p = 0, q = 0, we access v0 addresses:
+// v0[0], v0[4]; v1[0], v1[4] 
+//
+//We can make coalesced memory accesses if we make a single function that computes both, even/odd terms on the fly without making a function call for each specific even/odd split.
+//If we look closely, for the stage-1
+//even/odd access is interleaved. We could compute even->odd->even->odd->even->odd to help with memory localty.
+//To do this, we loop over each q value, which is our even/odd index selector when we are computing our butterfly passes (during p looping)
+
 void naiveDIFStockham0(std::uint32_t N, std::uint32_t stride, std::uint32_t eo, std::complex<double>* inout, std::complex<double>* work)
 {
     if (N <= 1u)
@@ -172,6 +244,7 @@ void naiveDIFStockham0(std::uint32_t N, std::uint32_t stride, std::uint32_t eo, 
     naiveDIFStockham1(half_N, nStride, eo + stride, work, inout);
 
 }
+
 void naiveDIFStockham1(std::uint32_t N, std::uint32_t stride, std::uint32_t eo, std::complex<double>* input, std::complex<double>* output)
 {
     if (N <= 1u)
@@ -189,4 +262,37 @@ void naiveDIFStockham1(std::uint32_t N, std::uint32_t stride, std::uint32_t eo, 
 
     naiveDIFStockham0(half_N, nStride, eo         , output, input);
     naiveDIFStockham0(half_N, nStride, eo + stride, output, input);
+}
+
+void DIF_recursive_Stockham0(std::uint32_t N, std::uint32_t stride, std::complex<double>* inout, std::complex<double>* work)
+{
+    if (N <= 1u)
+        return;
+
+    const std::uint32_t half_N{ N / 2u };
+    const double theta0{ -_2PI / static_cast<double>(N) };
+    const std::complex<double> omega{ cos(theta0), sin(theta0) };
+
+    stockhamIterativeButterflyPass(half_N, stride, omega, inout, work);
+
+    DIF_recursive_Stockham1(half_N, stride << 1u, work, inout);
+}
+
+void DIF_recursive_Stockham1(std::uint32_t N, std::uint32_t stride, std::complex<double>* input, std::complex<double>* output)
+{
+    if (N <= 1)
+    {
+        for (std::uint32_t q = 0; q < stride; ++q)
+        {
+            output[q] = input[q];
+        }
+    }
+
+    const std::uint32_t half_N{ N / 2u };
+    const double theta0{ -_2PI / static_cast<double>(N) };
+    const std::complex<double> omega{ cos(theta0), sin(theta0) };
+
+    stockhamIterativeButterflyPass(half_N, stride, omega, input, output);
+
+    DIF_recursive_Stockham0(half_N, stride << 1u, output, input);
 }

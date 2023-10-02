@@ -56,6 +56,6 @@ int main()
     std::vector<std::complex<double>> y;
     y.resize(static_cast<size_t>(N));
 
-    naiveDIFStockham0(N, 1, 0, x.data(), y.data());
+    DIF_recursive_Stockham0(N, 1, x.data(), y.data());
     return 0;
 }
