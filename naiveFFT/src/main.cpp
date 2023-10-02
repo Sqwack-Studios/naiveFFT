@@ -51,12 +51,11 @@ void bit_reverse(int N, complex_t* x) // bit reversal sorting
 
 int main()
 {
-    std::uint16_t N{ 4 };
+    std::uint32_t N{ 4 };
     std::vector<std::complex<double>> x{ {5, 0}, {3, 0}, {2, 0}, {1, 0} };
     std::vector<std::complex<double>> y;
     y.resize(static_cast<size_t>(N));
 
-    gentlemanSande_outofplace(N, 0, x.data(), y.data());
-
+    naiveDIFStockham0(N, 1, 0, x.data(), y.data());
     return 0;
 }

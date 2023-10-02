@@ -26,7 +26,7 @@ constexpr double _2PI = 6.2831853071795864;
 //As I said, out-of-place algorithms consume O(N) memory, but don't need bit reversal.
 //In-place algorithms do not consume extra memory, but need tricks to cope with the butterfly bit reversal
 
-void cooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<double>* input, std::complex<double>* output)
+void cooleyTukey_outofplace(std::uint32_t N, std::uint32_t stride, std::complex<double>* input, std::complex<double>* output)
 {
 
 	if (N == 1)
@@ -38,13 +38,13 @@ void cooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<
 	const double theta = -_2PI / static_cast<double>(N);
 	std::complex<double> omega = { cos(theta), sin(theta) };
 
-	const std::uint16_t half_N{ N / 2u };
+	const std::uint32_t half_N{ N / 2u };
 
-    std::uint16_t new_s = stride << 1;
+    std::uint32_t new_s = stride << 1;
 	cooleyTukey_outofplace(half_N, new_s, input, output); // even
 	cooleyTukey_outofplace(half_N, new_s, input + stride, output + half_N); //odd
 
-	for (std::uint16_t i = 0; i < half_N; ++i)
+	for (std::uint32_t i = 0; i < half_N; ++i)
 	{
 		const std::complex<double> aux = output[i];
 		const std::complex<double> wi = pow(omega, static_cast<float>(i));
@@ -56,12 +56,12 @@ void cooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<
 		
 }
 
-void cooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data)
+void cooleyTukey_inplace(std::uint32_t N, std::uint32_t offset, std::complex<double>* data)
 {
     if (N <= 1)
         return;
 
-    const std::uint16_t half_N{ N / 2u };
+    const std::uint32_t half_N{ N / 2u };
     const double theta{ -_2PI / static_cast<double>(N) };
 
     cooleyTukey_inplace(half_N, offset, data);//even
@@ -69,7 +69,7 @@ void cooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<dou
 
     std::complex<double> omega = { cos(theta), sin(theta) };
 
-    for (std::uint16_t i = 0; i < half_N; ++i)
+    for (std::uint32_t i = 0; i < half_N; ++i)
     {
         const std::complex<double> wi = pow(omega, static_cast<float>(i));
         const std::complex<double> Y_i{ data[i + offset]};
@@ -82,19 +82,19 @@ void cooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<dou
 
 
 //This is super slow
-void gentlemanSande_outofplace(std::uint16_t N, std::uint16_t q, std::complex<double>* x, std::complex<double>* y)
+void gentlemanSande_outofplace(std::uint32_t N, std::uint32_t q, std::complex<double>* x, std::complex<double>* y)
 {
     if (N <= 1)
         return;
 
-    const std::uint16_t half_N{ N / 2u };
+    const std::uint32_t half_N{ N / 2u };
     const double theta0{ -_2PI / static_cast<double>(N) };
     const std::complex<double> omega{ cos(theta0), sin(theta0) };
 
-    for (std::uint16_t i = 0u; i < half_N; ++i)
+    for (std::uint32_t i = 0u; i < half_N; ++i)
     {
-        const std::uint16_t aI{ static_cast<std::uint16_t>(q + i) };
-        const std::uint16_t bI{ static_cast<std::uint16_t>(q + i + half_N) };
+        const std::uint32_t aI{ static_cast<std::uint32_t>(q + i) };
+        const std::uint32_t bI{ static_cast<std::uint32_t>(q + i + half_N) };
         const std::complex<double> w_i = pow(omega, static_cast<float>(i));
         const std::complex<double> a = x[aI];
         const std::complex<double> b = x[bI];
@@ -106,28 +106,28 @@ void gentlemanSande_outofplace(std::uint16_t N, std::uint16_t q, std::complex<do
     gentlemanSande_outofplace(half_N, q, x, y);
     gentlemanSande_outofplace(half_N, q + half_N, x, y);
 
-    for (std::uint16_t i = 0u; i < half_N; ++i)
+    for (std::uint32_t i = 0u; i < half_N; ++i)
     {
         x[q + 2u * i] = y[q + i];
         x[q + 2u * i + 1u] = y[q + i + half_N];
     }
 }
 
-void gentlemanSande_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data)
+void gentlemanSande_inplace(std::uint32_t N, std::uint32_t offset, std::complex<double>* data)
 {
     if (N <= 1)
         return;
 
-    const std::uint16_t half_N{ N / 2u };
+    const std::uint32_t half_N{ N / 2u };
     const double theta0{ -_2PI / static_cast<double>(N) };
 
  
     const std::complex<double> omega{ cos(theta0), sin(theta0) };
 
-    for (std::uint16_t i = 0u; i < half_N; ++i)
+    for (std::uint32_t i = 0u; i < half_N; ++i)
     {
-        const std::uint16_t target{ static_cast<std::uint16_t>(i + offset) };
-        const std::uint16_t targetDisplaced{ static_cast<std::uint16_t>(target + half_N) };
+        const std::uint32_t target{ static_cast<std::uint32_t>(i + offset) };
+        const std::uint32_t targetDisplaced{ static_cast<std::uint32_t>(target + half_N) };
 
         const std::complex<double> w_i = pow(omega, static_cast<float>(i));
 
@@ -141,4 +141,52 @@ void gentlemanSande_inplace(std::uint16_t N, std::uint16_t offset, std::complex<
     gentlemanSande_inplace(half_N, offset, data);         //split1
     gentlemanSande_inplace(half_N, offset + half_N, data);//split2
 
+}
+
+void stockhamButterflyPass(std::uint32_t half_N, std::uint32_t stride, std::uint32_t eo, std::complex<double> w, std::complex<double>* in, std::complex<double>* out)
+{
+    for (std::uint32_t p = 0u; p < half_N; ++p)
+    {
+        const std::complex<double> w_p{ pow(w, static_cast<float>(p)) };
+        const std::complex<double> a{ in[eo + stride * (p)] };
+        const std::complex<double> b{ in[eo + stride * (p + half_N)] };
+
+        out[eo + stride * (2u * p)] = a + b;
+        out[eo + stride * (2u * p + 1u)] = (a - b) * w_p;
+    }
+}
+
+void naiveDIFStockham0(std::uint32_t N, std::uint32_t stride, std::uint32_t eo, std::complex<double>* inout, std::complex<double>* work)
+{
+    if (N <= 1u)
+        return;
+
+    const std::uint32_t half_N{ N / 2u };
+    const double theta0{ -_2PI / static_cast<double>(N) };
+    const std::complex<double> omega{ cos(theta0), sin(theta0) };
+
+    stockhamButterflyPass(half_N, stride, eo, omega, inout, work);
+
+    const std::uint32_t nStride{ stride << 1u };
+    naiveDIFStockham1(half_N, nStride, eo         , work, inout);
+    naiveDIFStockham1(half_N, nStride, eo + stride, work, inout);
+
+}
+void naiveDIFStockham1(std::uint32_t N, std::uint32_t stride, std::uint32_t eo, std::complex<double>* input, std::complex<double>* output)
+{
+    if (N <= 1u)
+    {
+        output[eo] = input[eo];
+    }
+
+    const std::uint32_t half_N{ N / 2u };
+    const double theta0{ -_2PI / static_cast<double>(N) };
+    const std::complex<double> omega{ cos(theta0), sin(theta0) };
+
+    stockhamButterflyPass(half_N, stride, eo, omega, input, output);
+
+    const std::uint32_t nStride{ stride << 1u };
+
+    naiveDIFStockham0(half_N, nStride, eo         , output, input);
+    naiveDIFStockham0(half_N, nStride, eo + stride, output, input);
 }
