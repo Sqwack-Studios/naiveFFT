@@ -51,31 +51,12 @@ void bit_reverse(int N, complex_t* x) // bit reversal sorting
 
 int main()
 {
-    std::vector<std::complex<double>> x{ {5.0, 0.0}, {3.0, 0.0}, {2.0, 0.0}, {1.0, 0.0}/*, {10.0, 0.0}, {7.0, 0.0}, {9.0, 0.0}, {4.0, 0.0}*/ };
-    int N = 4;
-    int q = 0;
-    //F(N, q, x.data());
-    //bit_reverse(N, x.data());
-    //cono(N);
-
-    int n, i, k;
-    std::vector<Comp> sig{ {5.0, 0.0}, {3.0, 0.0}, {2.0, 0.0}, {1.0, 0.0}/*, {10.0, 0.0}, {7.0, 0.0}, {9.0, 0.0}, {4.0, 0.0}*/ };
-    std::vector<Comp> f, sig0;
-
-    n = sig.size();
-    f.resize(n);
-    sig0.resize(n);
-
-
-    //std::vector<std::complex<double>> x{ {5.0, 0.0}, {3.0, 0.0}, {2.0, 0.0}, {1.0, 0.0}, {10.0, 0.0}, {7.0, 0.0}, {9.0, 0.0}, {4.0, 0.0} };
+    std::uint16_t N{ 4 };
+    std::vector<std::complex<double>> x{ {5, 0}, {3, 0}, {2, 0}, {1, 0} };
     std::vector<std::complex<double>> y;
-    y.resize(n);
-    test_dft(sig.data(), f.data(), sig0.data(), n);
-    test_fft(sig.data(), f.data(), sig0.data(), n);
+    y.resize(static_cast<size_t>(N));
 
-    CooleyTukey_outofplace(n, 1, x.data(), y.data());
-    //CooleyTukey_inplace(n, 0, x.data());
-    GentlemanSande_inplace(N, 0, x.data());
-    bit_reverse(n, x.data());
+    gentlemanSande_outofplace(N, 0, x.data(), y.data());
+
     return 0;
 }

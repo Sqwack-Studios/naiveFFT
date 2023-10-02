@@ -26,7 +26,7 @@ constexpr double _2PI = 6.2831853071795864;
 //As I said, out-of-place algorithms consume O(N) memory, but don't need bit reversal.
 //In-place algorithms do not consume extra memory, but need tricks to cope with the butterfly bit reversal
 
-void CooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<double>* input, std::complex<double>* output)
+void cooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<double>* input, std::complex<double>* output)
 {
 
 	if (N == 1)
@@ -41,8 +41,8 @@ void CooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<
 	const std::uint16_t half_N{ N / 2u };
 
     std::uint16_t new_s = stride << 1;
-	CooleyTukey_outofplace(half_N, new_s, input, output); // even
-	CooleyTukey_outofplace(half_N, new_s, input + stride, output + half_N); //odd
+	cooleyTukey_outofplace(half_N, new_s, input, output); // even
+	cooleyTukey_outofplace(half_N, new_s, input + stride, output + half_N); //odd
 
 	for (std::uint16_t i = 0; i < half_N; ++i)
 	{
@@ -56,7 +56,7 @@ void CooleyTukey_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<
 		
 }
 
-void CooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data)
+void cooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data)
 {
     if (N <= 1)
         return;
@@ -64,8 +64,8 @@ void CooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<dou
     const std::uint16_t half_N{ N / 2u };
     const double theta{ -_2PI / static_cast<double>(N) };
 
-    CooleyTukey_inplace(half_N, offset, data);//even
-    CooleyTukey_inplace(half_N, offset + half_N, data);//odd
+    cooleyTukey_inplace(half_N, offset, data);//even
+    cooleyTukey_inplace(half_N, offset + half_N, data);//odd
 
     std::complex<double> omega = { cos(theta), sin(theta) };
 
@@ -80,14 +80,40 @@ void CooleyTukey_inplace(std::uint16_t N, std::uint16_t offset, std::complex<dou
     }
 }
 
-void GentlemanSande_outofplace(std::uint16_t N, std::uint16_t stride, std::complex<double>* data, std::complex<double>* output)
+
+//This is super slow
+void gentlemanSande_outofplace(std::uint16_t N, std::uint16_t q, std::complex<double>* x, std::complex<double>* y)
 {
     if (N <= 1)
         return;
 
+    const std::uint16_t half_N{ N / 2u };
+    const double theta0{ -_2PI / static_cast<double>(N) };
+    const std::complex<double> omega{ cos(theta0), sin(theta0) };
+
+    for (std::uint16_t i = 0u; i < half_N; ++i)
+    {
+        const std::uint16_t aI{ static_cast<std::uint16_t>(q + i) };
+        const std::uint16_t bI{ static_cast<std::uint16_t>(q + i + half_N) };
+        const std::complex<double> w_i = pow(omega, static_cast<float>(i));
+        const std::complex<double> a = x[aI];
+        const std::complex<double> b = x[bI];
+
+        y[aI] = a + b;
+        y[bI] = (a - b) * w_i;
+    }
+
+    gentlemanSande_outofplace(half_N, q, x, y);
+    gentlemanSande_outofplace(half_N, q + half_N, x, y);
+
+    for (std::uint16_t i = 0u; i < half_N; ++i)
+    {
+        x[q + 2u * i] = y[q + i];
+        x[q + 2u * i + 1u] = y[q + i + half_N];
+    }
 }
 
-void GentlemanSande_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data)
+void gentlemanSande_inplace(std::uint16_t N, std::uint16_t offset, std::complex<double>* data)
 {
     if (N <= 1)
         return;
@@ -112,141 +138,7 @@ void GentlemanSande_inplace(std::uint16_t N, std::uint16_t offset, std::complex<
         data[targetDisplaced] = (a - b) * w_i;
     }
 
-    GentlemanSande_inplace(half_N, offset, data);         //even
-    GentlemanSande_inplace(half_N, offset + half_N, data);//odd
+    gentlemanSande_inplace(half_N, offset, data);         //split1
+    gentlemanSande_inplace(half_N, offset + half_N, data);//split2
 
-}
-
-Comp comp_create(double a, double b)
-{
-    Comp res;
-    res.a = a;
-    res.b = b;
-    return res;
-}
-
-Comp comp_add(Comp c1, Comp c2) {
-    Comp res = c1;
-    res.a += c2.a;
-    res.b += c2.b;
-    return res;
-}
-
-Comp comp_sub(Comp c1, Comp c2) {
-    Comp res = c1;
-    res.a -= c2.a;
-    res.b -= c2.b;
-    return res;
-}
-
-Comp comp_mul(Comp c1, Comp c2) {
-    Comp res;
-    res.a = c1.a * c2.a - c1.b * c2.b;
-    res.b = c1.b * c2.a + c1.a * c2.b;
-    return res;
-}
-
-
-void comp_print(Comp comp) {
-    printf("%.6f + %.6f i\n", comp.a, comp.b);
-}
-
-/* const double PI = acos(-1); */
-#define PI 3.141592653589793
-#define SQR(x) ((x) * (x))
-
-/* Calculate e^(ix) */
-Comp comp_euler(double x) {
-    Comp res;
-    res.a = cos(x);
-    res.b = sin(x);
-    return res;
-}
-
-#define comp_mul_self(c, c2) \
-do { \
-    double ca = c->a; \
-    c->a = ca * c2->a - c->b * c2->b; \
-    c->b = c->b * c2->a + ca * c2->b; \
-} while (0)
-
-void dft(const Comp* sig, Comp* f, int n, int inv) {
-    Comp ep = comp_euler(2 * (inv ? -PI : PI) / (double)n);
-    Comp ei, ej, * pi = &ei, * pj = &ej, * pp = &ep;
-    int i, j;
-    pi->a = pj->a = 1;
-    pi->b = pj->b = 0;
-    for (i = 0; i < n; i++)
-    {
-        f[i].a = f[i].b = 0;
-        for (j = 0; j < n; j++)
-        {
-            f[i] = comp_add(f[i], comp_mul(sig[j], *pj));
-            comp_mul_self(pj, pi);
-        }
-        comp_mul_self(pi, pp);
-    }
-}
-
-void fft(const Comp* sig, Comp* f, int s, int n, int inv) {
-    int i, hn = n >> 1;
-    Comp ep = comp_euler((inv ? PI : -PI) / (double)hn), ei;
-    Comp* pi = &ei, * pp = &ep;
-    if (!hn) *f = *sig;
-    else
-    {
-        fft(sig, f, s << 1, hn, inv);
-        fft(sig + s, f + hn, s << 1, hn, inv);
-        pi->a = 1;
-        pi->b = 0;
-        for (i = 0; i < hn; i++)
-        {
-            Comp even = f[i], * pe = f + i, * po = pe + hn;
-            comp_mul_self(po, pi);
-            pe->a += po->a;
-            pe->b += po->b;
-            po->a = even.a - po->a;
-            po->b = even.b - po->b;
-            comp_mul_self(pi, pp);
-        }
-    }
-}
-
-void print_result(const Comp* sig, const Comp* sig0, int n) {
-    int i;
-    double err = 0;
-    for (i = 0; i < n; i++)
-    {
-        Comp t = sig0[i];
-        t.a /= n;
-        t.b /= n;
-        comp_print(t);
-        t = comp_sub(t, sig[i]);
-        err += t.a * t.a + t.b * t.b;
-    }
-    printf("Error Squared = %.6f\n", err);
-}
-
-void test_dft(const Comp* sig, Comp* f, Comp* sig0, int n) {
-    int i;
-    puts("## Direct DFT ##");
-    dft(sig, f, n, 0);
-    for (i = 0; i < n; i++)
-        comp_print(f[i]);
-    puts("----------------");
-    dft(f, sig0, n, 1);
-    print_result(sig, sig0, n);
-    puts("################");
-}
-
-void test_fft(const Comp* sig, Comp* f, Comp* sig0, int n) {
-    int i;
-    puts("## Cooley–Tukey FFT ##");
-    fft(sig, f, 1, n, 0);
-    for (i = 0; i < n; i++)
-        comp_print(f[i]);
-    puts("----------------------");
-    fft(f, sig0, 1, n, 1);
-    print_result(sig, sig0, n);
-    puts("######################");
 }
