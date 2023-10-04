@@ -1,9 +1,27 @@
 #pragma once
 #include "FFTs.h"
 #include <vector>
-#include <iostream>
 #include <math.h>
 
+constexpr double _PI = 3.1415926535897931;
+constexpr double _2PI = 6.2831853071795864;
+
+void bit_reverse(int N, std::complex<double>* x)
+// N : sequence length
+// x : input/output sequence
+{
+    int n_half = N >> 1;
+
+    for (int i = 0, j = 1; j < N - 1; j++)
+    {
+        for (int k = n_half; k > (i ^= k); k >>= 1)
+        {
+        }
+
+
+        if (i < j) std::swap(x[i], x[j]); // swap x[i] and x[j]
+    }
+}
 
 //Naive FFT implementations
 
